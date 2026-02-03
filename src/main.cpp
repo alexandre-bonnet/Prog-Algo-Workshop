@@ -57,7 +57,7 @@ void rotate(sil::Image& image){
     } image = imageRot;
 }
 
-void cercle(sil::Image& image,int Ox,int Oy ,int r){
+void disk(sil::Image& image,int Ox,int Oy ,int r){
     for (int x{0}; x < image.width(); x++){
         for (int y{0}; y < image.height(); y++){
             if((x-Ox)*(x-Ox)+(y-Oy)*(y-Oy)<=r*r){
@@ -67,9 +67,38 @@ void cercle(sil::Image& image,int Ox,int Oy ,int r){
     }
 }
 
+void circle(sil::Image& image,int Ox,int Oy ,int r){
+    for (int x{0}; x < image.width(); x++){
+        for (int y{0}; y < image.height(); y++){
+            int position = (x-Ox)*(x-Ox)+(y-Oy)*(y-Oy);
+            if(position<=r*r&&position>=(r-5)*(r-5)){
+                image.pixel(x, y) = {0,1,0};
+            }
+        }
+    }
+}
+
+void rosace(sil::Image& image,int Ox,int Oy,int size){
+    circle(image,Ox,Oy,size);
+    for(int i{0}; i <361;i+=60){
+        circle(image, int(size*cos(i*3.14159/180))+Ox, int(size*sin(i*3.14159/180))+Oy,size);
+    }
+}
+void darken(sil::Image& image){
+    for (glm::vec3& color : image.pixels()){
+        color *= color;
+    }
+}
+
+void lighten(sil::Image& image){
+    for (glm::vec3& color : image.pixels()){
+        color = sqrt(color);
+    }
+}
+
 
 int main(){
-    sil::Image image{"images/logo.png"};
+    sil::Image image{"images/photo.jpg"};
     //sil::Image image{300/*width*/, 200/*height*/};
 
     //keep_green_only(image);
@@ -78,7 +107,11 @@ int main(){
     //negative(image);
     //degrade(image);
     //mirroir(image);
-    cercle(image, image.width()/2,image.height()/2,100);
     //rotate(image);
+    //disk(image, image.width()/2,image.height()/2,100);
+    //circle(image, image.width()/2,image.height()/2,100);
+    //lighten(image);
+    //darken(image);
+    //rosace(image,image.width()/2,image.height()/2,120);
     image.save("output/pouet.png");
 }
