@@ -12,7 +12,7 @@ void keep_green_only(sil::Image& image){
     }
 }
 
-void setGrey(glm::vec3& color, int grey){
+glm::vec3 setGrey(glm::vec3 color, int grey){
     color.r = grey;
     color.g = grey;
     color.b = grey;
@@ -27,7 +27,7 @@ void channels_swap(sil::Image& image){
 void NoirEtBlanc(sil::Image& image){
     for (glm::vec3& color : image.pixels()){
         float moy = (color.r*0.30f+color.b*0.53f+color.g*0.99f )/3.f;
-        setGrey(color, moy);
+        color = setGrey(color,moy);
     }
 }
 
@@ -170,30 +170,154 @@ void dithering(sil::Image& image){
     for (int x{0}; x < image.width(); x++){
         for (int y{0}; y < image.height(); y++){
             glm::vec3& color = image.pixel(x, y);
-            setGrey(color, (brightness(color)<((bayer[x%2][y%2]+ 0.5f)/6.f))<0.5? 1.f : 0.f);
+            color = setGrey(color, (brightness(color)<((bayer[x%2][y%2]+ 0.5f)/6.f))<0.5? 1.f : 0.f);
         }
     }
 }
+
 
 void normalise(sil::Image& image){
     float min{1.f};
     float max{0.f};
-    for (int x{0}; x < image.width(); x++){
-        for (int y{0}; y < image.height(); y++){
-            float bright = brightness(image.pixel(x, y));
-            min = bright<min? bright : min;
-            max = bright>min? bright : max;
-        }
+
+    for (glm::vec3& color : image.pixels()){
+        float b = brightness(color);
+        if (b < min) min = b;
+        if (b > max) max = b;
     }
-   // slope = (output_end - output_start) / (input_end - input_start)
-    //output = output_start + slope * (input - input_start)
+
+    float range = max - min;
+    if (range < 1e-6f) return;
+
+    for (glm::vec3& color : image.pixels()){
+        float b = brightness(color);
+        float bNorm = (b - min) / range;
+        color *= (bNorm / b);
+    }
 }
 
+void convolution(sil::Image& image){
+    sil::Image imageBlur {image};
+    for (int x{0}; x < image.width(); x++){
+        for (int y{0}; y < image.height(); y++){
+            glm::vec3 color = image.pixel(x, y);
+            float moy = 1.f;
+            for(int i{1};i<15;i++){
+                if(x+i<image.width()){
+                    color+=image.pixel(x+i,y);
+                    moy++;
+                }
+                if(x-i>0.f){
+                    color+=image.pixel(x-i,y);
+                    moy++;
+                }
+                if(y+i<image.height()){
+                    color+=image.pixel(x,y+i);
+                    moy++;
+                }
+                if(y-i>0.f){
+                    color+=image.pixel(x,y-i);
+                    moy++;
+                }
+            }
+            imageBlur.pixel(x, y) = color / moy;
+        }
+    }
+    image = imageBlur;
+}
+
+void saveAll(){
+    {
+        sil::Image image{"images/logo.png"};
+        keep_green_only(image);
+        image.save("output/keep_green_only.png");
+    }
+    {
+        sil::Image image{"images/logo.png"};
+        channels_swap(image);
+        image.save("output/channels_swap.png");
+    }
+    {
+        sil::Image image{"images/photo.jpg"};
+        NoirEtBlanc(image);
+        image.save("output/NoirEtBlanc.png");
+    }
+    {
+        sil::Image image{"images/logo.png"};
+        negative(image);
+        image.save("output/negative.png");
+    }
+    {
+        sil::Image image{300/*width*/, 200/*height*/};
+        degrade(image);
+        image.save("output/degrade.png");
+    }
+    {
+        sil::Image image{"images/logo.png"};
+        mirroir(image);
+        image.save("output/mirroir.png");
+    }
+    {
+        sil::Image image{"images/logo.png"};
+        rotate(image);
+        image.save("output/rotate.png");
+    }
+    {
+        sil::Image image{300/*width*/, 300/*height*/};
+        disk(image, image.width()/2,image.height()/2,100);
+        image.save("output/disk.png");
+    }
+    {
+        sil::Image image{300/*width*/, 300/*height*/};
+        circle(image, image.width()/2,image.height()/2,100);
+        image.save("output/circle.png");
+    }
+    {
+        sil::Image image{"images/photo.jpg"};
+        lighten(image);
+        image.save("output/lighten.png");
+    }
+    {
+        sil::Image image{"images/photo.jpg"};
+        darken(image);
+        image.save("output/darken.png");
+    }
+    {
+        sil::Image image{300/*width*/, 300/*height*/};
+        rosace(image,image.width()/2,image.height()/2,70);
+        image.save("output/rosace.png");
+    }
+    {
+        sil::Image image{"images/logo.png"};
+        mosaic(image);
+        image.save("output/mosaic.png");
+    }
+    {
+        sil::Image image{"images/logo.png"};
+        sort(image);
+        image.save("output/sort.png");
+    }
+    {
+        sil::Image image{"images/photo.jpg"};
+        dithering(image);
+        image.save("output/dithering.png");
+    }
+    {
+        sil::Image image{"images/photo.jpg"};
+        normalise(image);
+        image.save("output/normalise.png");
+    }
+    {
+        sil::Image image{"images/logo.png"};
+        convolution(image);
+        image.save("output/convolution.png");
+    }
+}
 
 int main(){
-    sil::Image image{"images/photo.jpg"};
+    saveAll();
+    //sil::Image image{"images/logo.png"};
     //sil::Image image{300/*width*/, 200/*height*/};
-
     //keep_green_only(image);
     //channels_swap(image);
     //NoirEtBlanc(image);
@@ -208,6 +332,8 @@ int main(){
     //rosace(image,image.width()/2,image.height()/2,120);
     //mosaic(image);
     //sort(image);
-    dithering(image);
-    image.save("output/pouet.png");
+    //dithering(image);
+    //normalise(image);
+    //convolution(image);
+    //image.save("output/pouet.png");
 }
